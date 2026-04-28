@@ -641,3 +641,42 @@ refreshCartSel();
 </script>
 </body>
 </html>
+<script>
+// Sync com chrome.storage.local (extensão Chrome)
+// Roda a cada vez que a página fica visível
+function syncFromExtension() {
+  if (typeof chrome === 'undefined' || !chrome.storage) return;
+  chrome.storage.local.get(['captdf_prosps','captdf_props','captdf_cart','captdf_idx'], result => {
+    let changed = false;
+    if (result.captdf_prosps) {
+      const ext = JSON.parse(result.captdf_prosps);
+      if (ext.length > prosps.length) { prosps = ext; changed = true; }
+    }
+    if (result.captdf_props) {
+      const ext = JSON.parse(result.captdf_props);
+      if (ext.length > props.length) { props = ext; changed = true; }
+    }
+    if (result.captdf_cart) {
+      const ext = JSON.parse(result.captdf_cart);
+      if (ext.length > carteira.length) { carteira = ext; changed = true; }
+    }
+    if (result.captdf_idx) {
+      idx = JSON.parse(result.captdf_idx);
+    }
+    if (changed) {
+      // Salva no localStorage também
+      localStorage.setItem('captdf_prosps', JSON.stringify(prosps));
+      localStorage.setItem('captdf_props',  JSON.stringify(props));
+      localStorage.setItem('captdf_cart',   JSON.stringify(carteira));
+      localStorage.setItem('captdf_idx',    JSON.stringify(idx));
+      renderAll(); renderStats(); updateHeader();
+      toast();
+    }
+  });
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) syncFromExtension();
+});
+syncFromExtension();
+</script>
