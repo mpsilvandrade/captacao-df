@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Malvadão</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',sans-serif;width:420px;max-height:600px;overflow-y:auto;background:#F7F6F3;color:#1A1916;font-size:13px}
+.header{background:#178CF2;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.header h1{font-size:14px;font-weight:600}
+.header small{font-size:11px;opacity:.8;margin-left:auto}
+.dot{width:8px;height:8px;border-radius:50%;background:#fff;flex-shrink:0}
+.body{padding:14px 16px}
+.status{background:#fff;border:1px solid #E2E0D8;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#6B6960;text-align:center}
+.status.ok{border-color:#9FE1CB;background:#E1F5EE;color:#085041}
+.status.err{border-color:#F5C4B3;background:#FAECE7;color:#993C1D}
+.status.loading{border-color:#B5D4F4;background:#E6F1FB;color:#185FA5}
+.card{background:#fff;border:1px solid #E2E0D8;border-radius:10px;padding:12px;margin-bottom:10px}
+.card-title{font-size:10px;font-weight:600;color:#A09D94;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.row:last-child{margin-bottom:0}
+.row label{font-size:11px;color:#6B6960;min-width:80px;flex-shrink:0}
+.row input,.row select{font-size:12px;padding:5px 8px;border:1px solid #E2E0D8;border-radius:7px;background:#fff;color:#1A1916;outline:none;flex:1;font-family:inherit}
+.row input:focus,.row select:focus{border-color:#178CF2}
+.tel-list{display:flex;flex-direction:column;gap:6px}
+.tel-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #E2E0D8;border-radius:8px;background:#fff;transition:all .12s}
+.tel-item.funciona{border-color:#0F6E56;background:#E1F5EE}
+.tel-num{flex:1;font-size:12px;font-family:monospace}
+.tel-wpp{font-size:10px;background:#E1F5EE;color:#0F6E56;padding:2px 6px;border-radius:10px;font-weight:500}
+.tel-check{width:16px;height:16px;cursor:pointer;accent-color:#0F6E56}
+.end-list{display:flex;flex-direction:column;gap:6px}
+.end-item{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border:1px solid #E2E0D8;border-radius:8px;background:#fff;cursor:pointer;transition:all .12s}
+.end-item.match{border-color:#178CF2;background:#E6F1FB}
+.end-item.selecionado{border-color:#0F6E56;background:#E1F5EE}
+.end-txt{font-size:11px;flex:1;line-height:1.4}
+.match-tag{font-size:9px;background:#178CF2;color:#fff;padding:1px 5px;border-radius:8px;white-space:nowrap}
+.btn{width:100%;padding:9px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:opacity .12s;margin-bottom:8px}
+.btn-extract{background:#178CF2;color:#fff}.btn-extract:hover{opacity:.88}
+.btn-extract:disabled{opacity:.5;cursor:default}
+.btn-save{background:#0F6E56;color:#fff}.btn-save:hover{opacity:.88}
+.btn-save:disabled{opacity:.4;cursor:default}
+.saved-msg{text-align:center;font-size:12px;color:#0F6E56;padding:4px 0;display:none}
+.link-small{font-size:11px;color:#178CF2;text-decoration:none;display:block;text-align:center;margin-top:4px}
+.not-dfi{text-align:center;padding:20px;color:#6B6960;font-size:12px;line-height:1.6;display:none}
+.not-dfi strong{display:block;font-size:14px;color:#1A1916;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="dot"></div>
+  <div><h1>Malvadão 😈</h1></div>
+  <small id="mode-label">—</small>
+</div>
+<div class="body">
+  <div id="status" class="status">Clique em "Extrair" para ler a página.</div>
+  <div id="not-dfi" class="not-dfi">
+    <strong>Página não reconhecida</strong>
+    Abra um anúncio no <b>DF Imóveis</b> ou uma consulta no <b>Eemovel</b>.
+  </div>
+
+  <!-- FORMULÁRIO IMÓVEL -->
+  <div id="form-imovel" style="display:none">
+    <div class="card">
+      <div class="card-title">Dados do imóvel</div>
+      <div class="row"><label>Endereço</label><input id="f-end" type="text"></div>
+      <div class="row"><label>Apto / Nº</label><input id="f-apto" type="text" placeholder="Ex: 106, 305/205"></div>
+      <div class="row"><label>Dias publicado</label><input id="f-dias" type="number" min="0" placeholder="Ex: 21"></div>
+      <div class="row"><label>Região</label><input id="f-reg" type="text"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Características</div>
+      <div class="row"><label>Valor (R$)</label><input id="f-val"></div>
+      <div class="row"><label>Área (m²)</label><input id="f-area"></div>
+      <div class="row"><label>Quartos</label><input id="f-qts"></div>
+      <div class="row"><label>Suítes</label><input id="f-suites"></div>
+      <div class="row"><label>Garagem</label><input id="f-gar"></div>
+      <div class="row"><label>Elevador</label><select id="f-elev"><option value="">-</option><option>Sim</option><option>Não</option><option>Não informado</option></select></div>
+      <div class="row"><label>Posição do sol</label><input id="f-sol" placeholder="Ex: Nascente, Poente..."></div>
+      <div class="row"><label>Condomínio</label><input id="f-cond"></div>
+      <div class="row"><label>Valor m²</label><input id="f-m2"></div>
+      <div class="row"><label>Financiamento</label><select id="f-financ"><option value="">-</option><option>Sim</option><option>Não</option></select></div>
+    </div>
+    <button id="btn-save-im" class="btn btn-save" disabled>💾 Salvar imóvel</button>
+    <div id="saved-msg-im" class="saved-msg">✓ Imóvel salvo!</div>
+  </div>
+
+  <!-- FORMULÁRIO PROPRIETÁRIO -->
+  <div id="form-prop" style="display:none">
+    <div class="card">
+      <div class="card-title">Informações gerais</div>
+      <div class="row"><label>Nome</label><input id="p-nome"></div>
+      <div class="row"><label>Idade</label><input id="p-idade"></div>
+      <div class="row"><label>E-mail</label><input id="p-email"></div>
+      <div class="row"><label>Tipo</label>
+        <select id="p-tipo"><option>Pessoa física</option><option>Pessoa jurídica</option></select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Telefones — marque o que funciona ✓</div>
+      <div id="tel-list" class="tel-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Endereços — clique para selecionar</div>
+      <div id="end-list" class="end-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Imóvel vinculado</div>
+      <div class="row"><label>Imóvel</label><select id="p-imovel"><option value="">Selecione...</option></select></div>
+      <div class="row"><label>Status</label>
+        <select id="p-status">
+          <option>Não contatado</option><option>Contatado</option><option>Respondeu</option>
+          <option>Sem retorno</option><option>Interessado</option><option>Não interessado</option><option>Em negociação</option>
+        </select>
+      </div>
+    </div>
+    <button id="btn-save-prop" class="btn btn-save" disabled>💾 Salvar proprietário</button>
+    <div id="saved-msg-prop" class="saved-msg">✓ Proprietário salvo!</div>
+  </div>
+
+  <div style="position:sticky;bottom:0;background:#F7F6F3;padding:8px 0 4px">
+    <button id="btn-extract" class="btn btn-extract">🔍 Extrair dados da página</button>
+    <a id="btn-open" class="link-small" href="#" target="_blank">Abrir sistema →</a>
+  </div>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>
