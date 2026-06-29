@@ -1842,18 +1842,39 @@ function goTab(id,el){
   renderAll();
 }
 
+function deduplicarPorId(arr){
+  const visto=new Set();
+  return arr.filter(item=>{
+    if(!item.id||visto.has(item.id))return false;
+    visto.add(item.id);return true;
+  });
+}
+
 function carregarDoSheets(){
   if(!SHEETS_URL||SHEETS_URL.startsWith('COLE'))return iniciarLocal();
   iniciarLocal();
   const btn=document.getElementById('btn-sync');btn.textContent='☁ Carregando...';
   fetch(SHEETS_URL).then(r=>r.json()).then(data=>{
     if(!data||data.erro)throw new Error('sem dados');
-    const localP=prosps.length,localPR=props.length;
-    const remP=(data.imoveis||[]).length,remPR=(data.proprietarios||[]).length;
-    if(remP<localP||remPR<localPR){toast('⚠ Sheets tem menos dados — mantendo local');btn.textContent='☁ Sync';btn.disabled=false;return;}
-    if(data.imoveis&&data.imoveis.length>0){prosps=data.imoveis.map(r=>({id:Number(r['ID'])||0,cod:r['Código']||'',reg:r['Região']||'',end:r['Endereço']||'',apto:String(r['Apto/Nº']||''),tipo:r['Tipo']||'Apartamento',fin:r['Finalidade']||'Venda',val:String(r['Valor']||''),area:String(r['Área m²']||''),qts:String(r['Quartos']||''),suites:String(r['Suítes']||''),gar:String(r['Garagem']||''),elev:r['Elevador']||'',cond:String(r['Condomínio']||''),m2:String(r['Valor m²']||''),dias:String(r['Dias publicado']||''),financ:r['Aceita financiamento']||'',status:r['Status']||'Não abordado',link:r['Link']||'',obs:r['Observações']||'',data:r['Data']?String(r['Data']).split('T')[0]:'',origem:r['Origem']||'manual'}));}
-    if(data.proprietarios&&data.proprietarios.length>0){props=data.proprietarios.map(r=>({id:Number(r['ID'])||0,nome:r['Nome']||'',tipo:r['Tipo']||'Pessoa física',idade:r['Idade']||'',tel:r['Tel. 1']||'',tel2:r['Tel. 2']||'',tel3:r['Tel. 3']||'',tel4:r['Tel. 4']||'',tel5:r['Tel. 5']||'',email:r['E-mail']||'',horario:r['Horário']||'',statusContato:r['Status contato']||'Não contatado',imovelId:r['Imóvel ID']?Number(r['Imóvel ID']):null,enderecoEemovel:r['Endereço Eemovel']||'',obs:r['Observações']||''}));}
-    if(data.carteira&&data.carteira.length>0){carteira=data.carteira.map(r=>({id:Number(r['ID'])||0,prospId:Number(r['Imóvel ID'])||0,data:r['Data captação']||'',vvenda:String(r['Valor venda']||''),valug:String(r['Valor aluguel']||''),com:String(r['Comissão %']||''),obs:r['Observações']||''}));}
+    // Mescla Sheets + local sem duplicar por ID (Sheets tem prioridade)
+    if(data.imoveis&&data.imoveis.length>0){
+      const sheetsIds=new Set(data.imoveis.map(r=>Number(r['ID'])||0).filter(Boolean));
+      const sheetsP=data.imoveis.map(r=>({id:Number(r['ID'])||0,cod:r['Código']||'',reg:r['Região']||'',end:r['Endereço']||'',apto:String(r['Apto/Nº']||''),tipo:r['Tipo']||'Apartamento',fin:r['Finalidade']||'Venda',val:String(r['Valor']||''),area:String(r['Área m²']||''),qts:String(r['Quartos']||''),suites:String(r['Suítes']||''),gar:String(r['Garagem']||''),elev:r['Elevador']||'',cond:String(r['Condomínio']||''),m2:String(r['Valor m²']||''),dias:String(r['Dias publicado']||''),financ:r['Aceita financiamento']||'',status:r['Status']||'Não abordado',link:r['Link']||'',obs:r['Observações']||'',data:r['Data']?String(r['Data']).split('T')[0]:'',origem:r['Origem']||'manual'}));
+      const localSomente=prosps.filter(p=>p.id&&!sheetsIds.has(p.id));
+      prosps=deduplicarPorId([...sheetsP,...localSomente]);
+    }
+    if(data.proprietarios&&data.proprietarios.length>0){
+      const sheetsPrIds=new Set(data.proprietarios.map(r=>Number(r['ID'])||0).filter(Boolean));
+      const sheetsPR=data.proprietarios.map(r=>({id:Number(r['ID'])||0,nome:r['Nome']||'',tipo:r['Tipo']||'Pessoa física',idade:r['Idade']||'',tel:r['Tel. 1']||'',tel2:r['Tel. 2']||'',tel3:r['Tel. 3']||'',tel4:r['Tel. 4']||'',tel5:r['Tel. 5']||'',email:r['E-mail']||'',horario:r['Horário']||'',statusContato:r['Status contato']||'Não contatado',imovelId:r['Imóvel ID']?Number(r['Imóvel ID']):null,enderecoEemovel:r['Endereço Eemovel']||'',obs:r['Observações']||''}));
+      const localSomentePR=props.filter(p=>p.id&&!sheetsPrIds.has(p.id));
+      props=deduplicarPorId([...sheetsPR,...localSomentePR]);
+    }
+    if(data.carteira&&data.carteira.length>0){
+      const sheetsCartIds=new Set(data.carteira.map(r=>Number(r['ID'])||0).filter(Boolean));
+      const sheetsC=data.carteira.map(r=>({id:Number(r['ID'])||0,prospId:Number(r['Imóvel ID'])||0,data:r['Data captação']||'',vvenda:String(r['Valor venda']||''),valug:String(r['Valor aluguel']||''),com:String(r['Comissão %']||''),obs:r['Observações']||''}));
+      const localSomenteC=carteira.filter(c=>c.id&&!sheetsCartIds.has(c.id));
+      carteira=deduplicarPorId([...sheetsC,...localSomenteC]);
+    }
     const maxP=prosps.reduce((m,p)=>Math.max(m,p.id),0);const maxPR=props.reduce((m,p)=>Math.max(m,p.id),0);const maxC=carteira.reduce((m,c)=>Math.max(m,c.id),0);
     idx={p:maxP+1,pr:maxPR+1,c:maxC+1};
     localStorage.setItem(KEY_P,JSON.stringify(prosps));localStorage.setItem(KEY_PR,JSON.stringify(props));localStorage.setItem(KEY_C,JSON.stringify(carteira));localStorage.setItem(KEY_IDX,JSON.stringify(idx));
