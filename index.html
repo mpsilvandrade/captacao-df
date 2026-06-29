@@ -819,14 +819,18 @@ textarea{resize:vertical;min-height:60px}
 <!-- ===== MODAL: RESTAURAR BACKUP ===== -->
 <div class="modal-bg" id="modal-restaurar-bg" onclick="fecharModalRestaurar(event)">
   <div class="modal" style="max-width:560px">
-    <div class="modal-title">⚙ Restaurar Backup</div>
+    <div class="modal-title">⚙ Backup</div>
+    <div class="btn-row" style="margin-bottom:14px">
+      <button class="btn btn-g" onclick="gerarBackupAtual()">📥 Gerar backup atual</button>
+      <button class="btn btn-s" onclick="copiarBackup()">📋 Copiar</button>
+    </div>
     <div style="background:var(--amber-lt);border:1px solid var(--amber-md);padding:10px 12px;border-radius:var(--r);margin-bottom:12px;font-size:12px;line-height:1.5;color:#854D0E">
-      ⚠️ Cole o conteúdo do backup.txt abaixo. Isso vai <strong>substituir</strong> todos os dados atuais.
+      ⚠️ Para restaurar, cole o conteúdo de um backup abaixo e clique em Restaurar. Isso vai <strong>substituir</strong> todos os dados atuais.
     </div>
     <textarea id="rb-texto" placeholder='Cole aqui (começa com {"prosps":[...)' style="min-height:180px;font-family:'JetBrains Mono',monospace;font-size:11px"></textarea>
     <div id="rb-status" style="margin-top:10px;font-size:12px;display:none;padding:8px 10px;border-radius:var(--r)"></div>
     <div class="modal-foot">
-      <button class="btn btn-s" onclick="fecharModalRestaurar()">Cancelar</button>
+      <button class="btn btn-s" onclick="fecharModalRestaurar()">Fechar</button>
       <button class="btn btn-p" onclick="executarRestauracao()">🔄 Restaurar</button>
     </div>
   </div>
@@ -1003,6 +1007,31 @@ function atualizarFiltroRegioes(){
 }
 
 // ===== RENDER IMÓVEIS =====
+// ===== ORDENAÇÃO POR QUADRA + BLOCO =====
+// Extrai partes do endereço para ordenar corretamente: SQN/SQS, número da quadra, letra do bloco, apto
+function parseEndereco(end){
+  end=(end||'').toUpperCase().trim();
+  // Captura prefixo (SQN, SQS, SHCN, SHIS, etc), número da quadra, e bloco
+  const m=end.match(/^([A-Z]+)\s*0*(\d+)\s*(?:BLOCO|BL\.?)?\s*([A-Z0-9]*)/);
+  if(!m)return{prefixo:end,quadra:999999,bloco:'',resto:end};
+  return{
+    prefixo:m[1]||'',
+    quadra:parseInt(m[2])||999999,
+    bloco:(m[3]||'').trim(),
+    resto:end
+  };
+}
+function compararEnderecos(a,b){
+  const pa=parseEndereco(a.end),pb=parseEndereco(b.end);
+  if(pa.prefixo!==pb.prefixo)return pa.prefixo.localeCompare(pb.prefixo);
+  if(pa.quadra!==pb.quadra)return pa.quadra-pb.quadra;
+  if(pa.bloco!==pb.bloco)return pa.bloco.localeCompare(pb.bloco,undefined,{numeric:true});
+  return (a.apto||'').localeCompare(b.apto||'',undefined,{numeric:true});
+}
+function ordenarProspsPorEndereco(arr){
+  return [...arr].sort(compararEnderecos);
+}
+
 function renderProsp(){
   const fTel=normalizarTelefone(document.getElementById('f-tel')?document.getElementById('f-tel').value:'');
   const q=(document.getElementById('f-busca').value||'').toLowerCase();
@@ -1013,9 +1042,17 @@ function renderProsp(){
   const fValMin=parseFloat((document.getElementById('f-val-min')?document.getElementById('f-val-min').value:'')||0)||0;
   const fValMax=parseFloat((document.getElementById('f-val-max')?document.getElementById('f-val-max').value:'')||0)||0;
 
-  const list=prosps.filter(p=>{
+  function normBusca(s){return(s||'').toLowerCase().replace(/bloco/g,'bl').replace(/[.\-\/\\]/g,' ').replace(/\s+/g,' ').trim();}
+  const qNorm=normBusca(q);
+  const list=ordenarProspsPorEndereco(prosps.filter(p=>{
     if(fTel&&!imovelBateTelefone(p.id,fTel))return false;
-    if(q&&![p.end,p.cod,p.reg,p.obs,p.apto].some(x=>(x||'').toLowerCase().includes(q)))return false;
+    if(q){
+      const campos=[p.end,p.cod,p.reg,p.apto,p.obs];
+      const bate=campos.some(x=>normBusca(x).includes(qNorm));
+      // busca combinada: "sqn 213 h" bate em "SQN 213 BLOCO H"
+      const endApto=normBusca((p.end||'')+' '+(p.apto||''));
+      if(!bate&&!endApto.includes(qNorm))return false;
+    }
     if(fStatus&&(p.status||'Não abordado')!==fStatus)return false;
     if(fReg&&p.reg!==fReg)return false;
     if(fBloco&&!(p.end||'').toLowerCase().includes(fBloco)&&!(p.apto||'').toLowerCase().includes(fBloco))return false;
@@ -1026,7 +1063,7 @@ function renderProsp(){
       if(fValMax&&v>fValMax)return false;
     }
     return true;
-  });
+  }));
 
   const cntEl=document.getElementById('cnt-prosp');
   cntEl.textContent=list.length!==prosps.length?`${list.length} / ${prosps.length}`:prosps.length;
@@ -1493,6 +1530,23 @@ function adicionarImoveisColados(){
 // ===== RESTAURAR BACKUP =====
 function abrirModalRestaurar(){document.getElementById('rb-texto').value='';document.getElementById('rb-status').style.display='none';document.getElementById('modal-restaurar-bg').classList.add('open');}
 function fecharModalRestaurar(e){if(!e||e.target===document.getElementById('modal-restaurar-bg'))document.getElementById('modal-restaurar-bg').classList.remove('open');}
+function gerarBackupAtual(){
+  const backup={prosps,props,cart:carteira,idx,lembretes,geradoEm:new Date().toISOString()};
+  document.getElementById('rb-texto').value=JSON.stringify(backup);
+  const st=document.getElementById('rb-status');
+  st.style.display='block';st.style.background='var(--blue-lt)';st.style.color='var(--blue)';
+  st.textContent='✅ Backup gerado abaixo com '+prosps.length+' imóveis, '+props.length+' proprietários. Copie e salve em um arquivo.';
+}
+function copiarBackup(){
+  const txt=document.getElementById('rb-texto');
+  if(!txt.value.trim()){gerarBackupAtual();}
+  txt.select();
+  try{
+    navigator.clipboard.writeText(txt.value).then(()=>toast('✓ Backup copiado!'));
+  }catch(e){
+    document.execCommand('copy');toast('✓ Backup copiado!');
+  }
+}
 function executarRestauracao(){
   const txt=document.getElementById('rb-texto').value.trim();const st=document.getElementById('rb-status');
   if(!txt){st.style.display='block';st.style.background='var(--red-lt)';st.style.color='var(--red)';st.textContent='⚠️ Cole o backup primeiro.';return;}
